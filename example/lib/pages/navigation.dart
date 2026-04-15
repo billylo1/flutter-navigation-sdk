@@ -181,10 +181,30 @@ class _NavigationPageState extends ExamplePageState<NavigationPage> {
     super.dispose();
   }
 
-  // Adds day/night mode toggle button to app bar.
-  @override
-  List<Widget>? getAppBarActions() {
-    return <Widget>[_colorSchemeToggle];
+  Future<void> _changeTravelMode(NavigationTravelMode? value) async {
+    setState(() {
+      _travelMode = value!;
+      _validRoute = false;
+    });
+    final bool success = await _updateNavigationDestinations();
+    if (success) {
+      setState(() {
+        _validRoute = true;
+      });
+    }
+  }
+
+  Widget _buildTravelModeChip(NavigationTravelMode mode, String label) {
+    final bool isSelected = _travelMode == mode;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (bool selected) async {
+        if (selected) {
+          await _changeTravelMode(mode);
+        }
+      },
+    );
   }
 
   Future<void> _initialize() async {
@@ -1283,6 +1303,9 @@ class _NavigationPageState extends ExamplePageState<NavigationPage> {
   }
 
   @override
+  bool get showAppBar => false;
+
+  @override
   Widget build(BuildContext context) => buildPage(
     context,
     (BuildContext context) => Padding(
@@ -1291,7 +1314,6 @@ class _NavigationPageState extends ExamplePageState<NavigationPage> {
         children: <Widget>[
           Column(
             children: <Widget>[
-              _topBarControls,
               Expanded(
                 child:
                     _navigatorInitializedAtLeastOnce && _userLocation != null
@@ -1656,6 +1678,44 @@ class _NavigationPageState extends ExamplePageState<NavigationPage> {
           child: ExpansionTile(
             title: const Text('Navigation'),
             children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Travel Mode:',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: <Widget>[
+                        _buildTravelModeChip(
+                          NavigationTravelMode.driving,
+                          'Driving',
+                        ),
+                        _buildTravelModeChip(
+                          NavigationTravelMode.cycling,
+                          'Cycling',
+                        ),
+                        _buildTravelModeChip(
+                          NavigationTravelMode.walking,
+                          'Walking',
+                        ),
+                        _buildTravelModeChip(NavigationTravelMode.taxi, 'Taxi'),
+                        _buildTravelModeChip(
+                          NavigationTravelMode.twoWheeler,
+                          'Two Wheeler',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 10,
@@ -2234,124 +2294,6 @@ class _NavigationPageState extends ExamplePageState<NavigationPage> {
         ),
       ],
     );
-  }
-
-  Widget get _colorSchemeToggle => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-    child: InkWell(
-      onTap: _cycleColorScheme,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        child: Icon(
-          _getColorSchemeIcon(),
-          size: 30,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
-    ),
-  );
-
-  IconData _getColorSchemeIcon() {
-    switch (_mapColorScheme) {
-      case MapColorScheme.light:
-        return Icons.brightness_7;
-      case MapColorScheme.dark:
-        return Icons.brightness_3;
-      case MapColorScheme.followSystem:
-        return Icons.brightness_auto;
-    }
-  }
-
-  Future<void> _cycleColorScheme() async {
-    setState(() {
-      switch (_mapColorScheme) {
-        case MapColorScheme.followSystem:
-          _mapColorScheme = MapColorScheme.light;
-          _forceNightMode = NavigationForceNightMode.forceDay;
-        case MapColorScheme.light:
-          _mapColorScheme = MapColorScheme.dark;
-          _forceNightMode = NavigationForceNightMode.forceNight;
-        case MapColorScheme.dark:
-          _mapColorScheme = MapColorScheme.followSystem;
-          _forceNightMode = NavigationForceNightMode.auto;
-      }
-    });
-
-    try {
-      await _navigationViewController?.setMapColorScheme(_mapColorScheme);
-      await _navigationViewController?.setForceNightMode(_forceNightMode);
-    } catch (e) {
-      _showMessage('Failed to update color scheme: $e');
-    }
-  }
-
-  Widget get _topBarControls => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    children: <Widget>[
-      _buildTravelModeChoice(
-        NavigationTravelMode.driving,
-        Icons.directions_car,
-      ),
-      _buildTravelModeChoice(
-        NavigationTravelMode.cycling,
-        Icons.directions_bike,
-      ),
-      _buildTravelModeChoice(
-        NavigationTravelMode.walking,
-        Icons.directions_walk,
-      ),
-      _buildTravelModeChoice(NavigationTravelMode.taxi, Icons.local_taxi),
-      _buildTravelModeChoice(
-        NavigationTravelMode.twoWheeler,
-        Icons.two_wheeler,
-      ),
-    ],
-  );
-
-  Widget _buildTravelModeChoice(NavigationTravelMode mode, IconData icon) {
-    final bool isSelected = mode == _travelMode;
-    final bool enabled =
-        !_routeTokensEnabled || mode == NavigationTravelMode.driving;
-    return InkWell(
-      onTap: enabled ? () => _changeTravelMode(mode) : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.all(5),
-            child: Icon(
-              icon,
-              size: 30,
-              color:
-                  enabled
-                      ? (isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.secondary)
-                      : Theme.of(context).colorScheme.secondary.withAlpha(128),
-            ),
-          ),
-          if (isSelected)
-            Container(
-              height: 3,
-              color: Theme.of(context).colorScheme.primary,
-              width: 40, // Adjust this according to your design
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _changeTravelMode(NavigationTravelMode? value) async {
-    setState(() {
-      _travelMode = value!;
-      _validRoute = false;
-    });
-    final bool success = await _updateNavigationDestinations();
-    if (success) {
-      setState(() {
-        _validRoute = true;
-      });
-    }
   }
 
   Widget _buildColorSchemeChip(MapColorScheme scheme, String label) {

@@ -103,16 +103,22 @@ abstract class ExamplePageState<T extends ExamplePage> extends State<T>
     return Stack(
       children: <Widget>[
         Scaffold(
-          appBar: AppBar(
-            title: Text(widget.title),
-            actions: getAppBarActions(),
-          ),
+          appBar: showAppBar
+              ? AppBar(
+                  title: Text(widget.title),
+                  actions: getAppBarActions(),
+                )
+              : null,
           body: Builder(builder: (BuildContext context) => builder(context)),
         ),
         if (_isOverlayVisible) _buildOverlay(),
       ],
     );
   }
+
+  /// Whether to show the AppBar.
+  @protected
+  bool get showAppBar => true;
 
   Widget _buildOverlay() {
     return Stack(
